@@ -4,6 +4,14 @@
 
 Self-hosted white-label platform: funnels, CRM, automations, payments, snapshots, REST API, webhooks, and cron jobs.
 
+## Repositories (cloud backup)
+
+| Repo | Purpose |
+|------|---------|
+| [Hiulks/spotship](https://github.com/Hiulks/spotship) | Main platform |
+| [Hiulks/spotship-middleware](https://github.com/Hiulks/spotship-middleware) | Webhook receiver |
+| [Hiulks/spotship-agency-toolkit](https://github.com/Hiulks/spotship-agency-toolkit) | Deploy scripts + starter snapshot |
+
 ## One-Command Setup
 
 ```bash
