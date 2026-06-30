@@ -1,0 +1,807 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core tenancy ───────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?
+  plan        String   @default("starter")
+  status      String   @default("active")
+  folderId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members          Membership[]
+  whiteLabel       WhiteLabelConfig?
+  saasConfig       SaasConfig?
+  snapshots        Snapshot[]
+  funnels          Funnel[]
+  websites         Website[]
+  forms            Form[]
+  surveys          Survey[]
+  calendars        Calendar[]
+  pipelines        Pipeline[]
+  contacts         Contact[]
+  tags             Tag[]
+  customFields     CustomField[]
+  workflows        Workflow[]
+  emailSequences   EmailSequence[]
+  smsSequences     SmsSequence[]
+  aiAgents         AiAgent[]
+  apiIntegrations  ApiIntegration[]
+  webhooks         Webhook[]
+  products         Product[]
+  affiliates       Affiliate[]
+  automationLogs   AutomationLog[]
+  companies        Company[]
+  locations        Location[]
+  teams            Team[]
+  tasks            Task[]
+  notes            Note[]
+  invoices         Invoice[]
+  courses          Course[]
+  membershipPlans  MembershipPlan[]
+  messageLogs      MessageLog[]
+  apiKeys          ApiKey[]
+  cronJobs         CronJob[]
+  folder           AccountFolder? @relation(fields: [folderId], references: [id])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("user")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships Membership[]
+}
+
+model Membership {
+  id             String @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String @default("member")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model AccountFolder {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  organizations Organization[]
+}
+
+// ─── White-label & SaaS ───────────────────────────────────────
+
+model WhiteLabelConfig {
+  id             String  @id @default(cuid())
+  organizationId String  @unique
+  brandName      String
+  logoUrl        String?
+  primaryColor   String  @default("#6366f1")
+  customDomain   String?
+  supportEmail   String?
+  hidePoweredBy  Boolean @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model SaasConfig {
+  id                  String  @id @default(cuid())
+  organizationId      String  @unique
+  enabled             Boolean @default(false)
+  resellerName        String?
+  defaultPlan         String  @default("starter")
+  stripeConnectId     String?
+  allowSubAccounts    Boolean @default(true)
+  maxSubAccounts      Int     @default(50)
+  revenueSharePercent Float   @default(20)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Snapshots ──────────────────────────────────────────────
+
+model Snapshot {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  version        String   @default("1.0.0")
+  payload        String   // JSON export of all org assets
+  isTemplate     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Funnels & Websites ─────────────────────────────────────
+
+model Funnel {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  status         String   @default("draft")
+  customCss      String?
+  customHtml     String?
+  customJs       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pages        FunnelPage[]
+
+  @@unique([organizationId, slug])
+}
+
+model FunnelPage {
+  id        String @id @default(cuid())
+  funnelId  String
+  name      String
+  slug      String
+  order     Int    @default(0)
+  content   String // JSON blocks
+  settings  String @default("{}")
+
+  funnel Funnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+}
+
+model Website {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  status         String   @default("draft")
+  customCss      String?
+  customHtml     String?
+  customJs       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pages        WebsitePage[]
+
+  @@unique([organizationId, slug])
+}
+
+model WebsitePage {
+  id        String @id @default(cuid())
+  websiteId String
+  name      String
+  slug      String
+  order     Int    @default(0)
+  content   String
+  settings  String @default("{}")
+
+  website Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+}
+
+// ─── Forms & Surveys ────────────────────────────────────────
+
+model Form {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  settings       String   @default("{}")
+  thankYouMsg    String   @default("Thank you!")
+  createdAt      DateTime @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fields       FormField[]
+  submissions  FormSubmission[]
+
+  @@unique([organizationId, slug])
+}
+
+model FormField {
+  id       String @id @default(cuid())
+  formId   String
+  label    String
+  type     String @default("text")
+  required Boolean @default(false)
+  options  String?
+  order    Int    @default(0)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+}
+
+model FormSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  contactId String?
+  data      String
+  createdAt DateTime @default(now())
+
+  form    Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id])
+}
+
+model Survey {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  settings       String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  questions    SurveyQuestion[]
+  responses    SurveyResponse[]
+
+  @@unique([organizationId, slug])
+}
+
+model SurveyQuestion {
+  id       String @id @default(cuid())
+  surveyId String
+  question String
+  type     String @default("text")
+  options  String?
+  order    Int    @default(0)
+
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+}
+
+// ─── Calendars ──────────────────────────────────────────────
+
+model Calendar {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  duration       Int      @default(30)
+  settings       String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slots        CalendarSlot[]
+  appointments Appointment[]
+
+  @@unique([organizationId, slug])
+}
+
+model CalendarSlot {
+  id         String @id @default(cuid())
+  calendarId String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id         String   @id @default(cuid())
+  calendarId String
+  contactId  String?
+  name       String
+  email      String
+  phone      String?
+  startsAt   DateTime
+  endsAt     DateTime
+  status     String   @default("confirmed")
+  createdAt  DateTime @default(now())
+
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  contact  Contact? @relation(fields: [contactId], references: [id])
+}
+
+// ─── CRM ────────────────────────────────────────────────────
+
+model Contact {
+  id             String   @id @default(cuid())
+  organizationId String
+  companyId      String?
+  email          String
+  firstName      String?
+  lastName       String?
+  phone          String?
+  tags           String   @default("[]")
+  customData     String   @default("{}")
+  source         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  company       Company?           @relation(fields: [companyId], references: [id])
+  opportunities Opportunity[]
+  submissions   FormSubmission[]
+  appointments  Appointment[]
+  tasks         Task[]
+  notes         Note[]
+  messageLogs   MessageLog[]
+
+  @@unique([organizationId, email])
+}
+
+model Pipeline {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stages       PipelineStage[]
+}
+
+model PipelineStage {
+  id         String @id @default(cuid())
+  pipelineId String
+  name       String
+  order      Int    @default(0)
+  color      String @default("#6366f1")
+
+  pipeline      Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[]
+}
+
+model Opportunity {
+  id        String   @id @default(cuid())
+  contactId String
+  stageId   String
+  title     String
+  value     Float    @default(0)
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contact Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  color          String @default("#6366f1")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model CustomField {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  key            String
+  type           String @default("text")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+}
+
+// ─── Automations ────────────────────────────────────────────
+
+model Workflow {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  trigger        String
+  triggerConfig  String   @default("{}")
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        WorkflowStep[]
+  runs         WorkflowRun[]
+}
+
+model WorkflowStep {
+  id         String @id @default(cuid())
+  workflowId String
+  type       String
+  config     String @default("{}")
+  order      Int    @default(0)
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowRun {
+  id         String   @id @default(cuid())
+  workflowId String
+  contactId  String?
+  status     String   @default("running")
+  context    String   @default("{}")
+  error      String?
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model EmailSequence {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  status         String @default("draft")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        EmailSequenceStep[]
+}
+
+model EmailSequenceStep {
+  id         String @id @default(cuid())
+  sequenceId String
+  subject    String
+  body       String
+  delayDays  Int    @default(0)
+  order      Int    @default(0)
+
+  sequence EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+}
+
+model SmsSequence {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  status         String @default("draft")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        SmsSequenceStep[]
+}
+
+model SmsSequenceStep {
+  id         String @id @default(cuid())
+  sequenceId String
+  message    String
+  delayDays  Int    @default(0)
+  order      Int    @default(0)
+
+  sequence SmsSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Agents ────────────────────────────────────────────────
+
+model AiAgent {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  systemPrompt   String
+  model          String   @default("gpt-4o-mini")
+  status         String   @default("active")
+  settings       String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  flows        ConversationFlow[]
+}
+
+model ConversationFlow {
+  id        String @id @default(cuid())
+  agentId   String
+  name      String
+  nodes     String // JSON flow graph
+  status    String @default("draft")
+
+  agent    AiAgent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  sessions ConversationSession[]
+}
+
+model ConversationSession {
+  id        String   @id @default(cuid())
+  flowId    String
+  contactId String?
+  messages  String   @default("[]")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+
+  flow ConversationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+}
+
+// ─── Integrations ───────────────────────────────────────────
+
+model ApiIntegration {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  type           String
+  config         String   @default("{}")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Webhook {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  url            String
+  events         String   @default("[]")
+  secret         String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  webhookId  String
+  event      String
+  payload    String
+  status     String
+  response   String?
+  createdAt  DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+}
+
+// ─── Payments ───────────────────────────────────────────────
+
+model Product {
+  id              String  @id @default(cuid())
+  organizationId  String
+  name            String
+  description     String?
+  price           Float
+  currency        String  @default("usd")
+  interval        String? // month, year, one_time
+  stripePriceId   String?
+  stripeProductId String?
+  status          String  @default("active")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  productId            String
+  contactEmail         String
+  stripeSubscriptionId String?
+  status               String   @default("active")
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  productId       String
+  contactEmail    String
+  amount          Float
+  currency        String   @default("usd")
+  stripePaymentId String?
+  status          String   @default("succeeded")
+  createdAt       DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ─── Affiliates ───────────────────────────────────────────────
+
+model Affiliate {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  email          String
+  code           String
+  commissionRate Float   @default(20)
+  status         String  @default("active")
+  payoutEmail    String?
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  referrals    AffiliateReferral[]
+
+  @@unique([organizationId, code])
+}
+
+model AffiliateReferral {
+  id          String   @id @default(cuid())
+  affiliateId String
+  contactEmail String
+  amount      Float    @default(0)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+}
+
+// ─── Debugging ──────────────────────────────────────────────
+
+model AutomationLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  source         String
+  level          String   @default("info")
+  message        String
+  metadata       String   @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Extended CRM ───────────────────────────────────────────
+
+model Company {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  website        String?
+  industry       String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+}
+
+model Location {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  city           String?
+  country        String?
+  timezone       String  @default("UTC")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  members        String @default("[]")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  organizationId String
+  contactId      String?
+  title          String
+  description    String?
+  dueAt          DateTime?
+  status         String    @default("open")
+  priority       String    @default("normal")
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+}
+
+model Note {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  content        String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactEmail   String
+  amount         Float
+  currency       String   @default("usd")
+  status         String   @default("draft")
+  dueAt          DateTime?
+  items          String   @default("[]")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Course {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  modules        String @default("[]")
+  status         String @default("draft")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  MembershipPlan[]
+}
+
+model MembershipPlan {
+  id             String   @id @default(cuid())
+  organizationId String
+  courseId       String?
+  name           String
+  contactEmail   String
+  status         String   @default("active")
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  course       Course?      @relation(fields: [courseId], references: [id])
+}
+
+model SurveyResponse {
+  id        String   @id @default(cuid())
+  surveyId  String
+  contactId String?
+  answers   String
+  createdAt DateTime @default(now())
+
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+}
+
+model MessageLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  channel        String
+  to             String
+  subject        String?
+  body           String
+  status         String   @default("sent")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+}
+
+// ─── API Keys & Cron ────────────────────────────────────────
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String    @unique
+  prefix         String
+  scopes         String    @default("[\"*\"]")
+  lastUsedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CronJob {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  schedule       String
+  action         String
+  config         String    @default("{}")
+  status         String    @default("active")
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         CronJobRun[]
+}
+
+model CronJobRun {
+  id        String   @id @default(cuid())
+  jobId     String
+  status    String
+  output    String?
+  error     String?
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+
+  job CronJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}

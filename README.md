@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SpotShip
 
-## Getting Started
+**Ship complete business systems to clients in minutes.**
 
-First, run the development server:
+Self-hosted white-label platform: funnels, CRM, automations, payments, snapshots, REST API, webhooks, and cron jobs.
+
+## One-Command Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd /home/cody/spotship
+npm run setup        # install + db + seed + build
+npm run dev          # http://localhost:3000
+npm run verify       # 8/8 automated flow tests
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Demo login:** `demo@spotship.io` / `demo1234`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Agency Workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+UI (build) → Test (verify) → Snapshot (replicate) → API (automate) → Webhooks (events) → Middleware (custom logic) → Cron (scheduled)
+```
 
-## Learn More
+### 1. Build in UI
+Dashboard modules: Funnels, Websites, Forms, Surveys, Calendars, CRM Pipeline, Workflows, Email/SMS Sequences, AI Agents, Payments, SaaS, White Label, Affiliates.
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Test Everything
+```bash
+npm run verify
+```
+Tests: form → contact → workflow → email/SMS → pipeline → calendar → snapshot → REST API.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Snapshot (1-click)
+Dashboard → **Snapshots** → Export / Backup / Clone / Import JSON.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. REST API v1 (GET / POST / PUT / DELETE)
+Generate an API key in **Integrations**, then:
 
-## Deploy on Vercel
+```bash
+# List contacts
+curl http://localhost:3000/api/v1/contacts \
+  -H "Authorization: Bearer ss_YOUR_KEY"
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Create contact
+curl -X POST http://localhost:3000/api/v1/contacts \
+  -H "Authorization: Bearer ss_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"lead@example.com","firstName":"Jane"}'
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Move opportunity
+curl -X PUT http://localhost:3000/api/v1/opportunities/ID \
+  -H "Authorization: Bearer ss_YOUR_KEY" \
+  -d '{"stageId":"STAGE_ID"}'
+```
+
+**Resources:** contacts, companies, tasks, notes, tags, funnels, forms, pipelines, opportunities, workflows, products, invoices, courses, memberships, webhooks, cron-jobs, snapshots
+
+### 5. Webhooks (outbound events)
+Configure in **Integrations**. Events fired automatically:
+
+| Event | Trigger |
+|-------|---------|
+| `lead.created` | New form submission |
+| `form.submitted` | Form completed |
+| `payment.received` | Stripe payment |
+| `appointment.created` | Calendar booking |
+| `pipeline.changed` | Opportunity moved |
+| `opportunity.stage_changed` | Stage update |
+| `tag.added` | Workflow adds tag |
+| `workflow.completed` | Automation finished |
+| `workflow.failed` | Automation error |
+
+### 6. Middleware (your server)
+```bash
+npm run middleware   # http://localhost:4000/webhook
+```
+Point a SpotShip webhook to `http://localhost:4000/webhook`. Extend `middleware-example/server.js` for Slack, Discord, ERP, etc.
+
+### 7. Cron Jobs
+```bash
+npm run cron         # runs scheduled jobs every 60s
+```
+Built-in actions: `backup`, `sync_contacts`, `cleanup_logs`, `export_snapshot`, `webhook_ping`
+
+## Public URLs
+
+| Type | URL |
+|------|-----|
+| Form | `/form/demo/contact` |
+| Funnel | `/funnel/demo/lead-gen` |
+| Calendar | `/calendar/demo/discovery-call` |
+
+## Email & SMS
+
+Without credentials, messages are **simulated** and logged to `data/outbox/`.
+
+Optional `.env`:
+```
+SMTP_HOST=smtp.example.com
+SMTP_USER=...
+SMTP_PASS=...
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM=+1...
+```
+
+## Stripe
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+Webhook endpoint: `POST /api/stripe/webhook`
+
+## Docker
+
+```bash
+docker compose up -d
+```
+
+## Backup
+
+Pre-expansion backup saved at:
+`/home/cody/backups/spotship-20260630-092309`
+
+## Project Structure
+
+```
+src/lib/
+  snapshots.ts      # Export/import/clone engine
+  automations.ts    # Workflow execution
+  messaging.ts      # Email + SMS delivery
+  event-bus.ts      # Webhook event emitter
+  api-v1.ts         # REST resource registry
+  cron.ts           # Scheduled job runner
+scripts/
+  setup.sh          # One-command install
+  verify-flow.ts    # E2E tests
+  cron-worker.ts    # Background cron
+middleware-example/ # Webhook receiver template
+```
+
+## License
+
+MIT

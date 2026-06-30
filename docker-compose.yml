@@ -1,0 +1,15 @@
+services:
+  spotship:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/data/prod.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    volumes:
+      - spotship-data:/data
+    command: sh -c "npx prisma db push && npx tsx prisma/seed.ts && npm start"
+
+volumes:
+  spotship-data:
